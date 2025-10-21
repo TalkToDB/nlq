@@ -70,7 +70,7 @@ def create_chat_tab(db_manager):
         master_agent_state = gr.State(None)
         
         with gr.Row():
-            with gr.Column(scale=1, min_width=350):
+            with gr.Column(scale=1, min_width=280):
                 gr.Markdown("### Configuration")
                 
                 connection_dropdown = gr.Dropdown(
@@ -112,12 +112,12 @@ def create_chat_tab(db_manager):
                     allow_custom_value=False
                 )
             
-            with gr.Column(scale=2, min_width=600):
+            with gr.Column(scale=3, min_width=600):
                 gr.Markdown("### Ask Your Question")
                 
                 chatbot = gr.Chatbot(
                     label="Conversation",
-                    height=450,
+                    height=650,
                     show_copy_button=True,
                     type="tuples",
                     bubble_full_width=False,

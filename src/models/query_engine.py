@@ -107,7 +107,7 @@ def execute_agent_query(
             formatted_response += "---\n\n"
         
         # Add the final response
-        formatted_response += f"### 💬 Response:\n\n{response_text}"
+        formatted_response += f"### Response:\n\n{response_text}"
         
         chat_history.append((query, formatted_response))
         return chat_history, ""
