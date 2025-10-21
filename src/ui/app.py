@@ -4,7 +4,7 @@ Main Gradio application.
 
 import gradio as gr
 from src.database.manager import DatabaseManager
-from src.ui.query_tab import create_query_tab
+from src.ui.chat import create_chat_tab
 from src.ui.connections_tab import create_connections_tab, add_db_connection_handler, delete_db_connection_handler
 from src.ui.sql_query_tab import create_sql_query_tab
 from src.ui.theme import create_theme
@@ -98,7 +98,7 @@ def create_app():
         
         with gr.Tabs():
             # Query tab
-            connection_dropdown = create_query_tab(db_manager)
+            connection_dropdown = create_chat_tab(db_manager)
             
             # SQL Query tab
             sql_connection_dropdown = create_sql_query_tab(db_manager)
