@@ -4,8 +4,9 @@ Query tab UI component.
 
 import gradio as gr
 from src.models.config import get_all_providers
-from src.models.query_engine import execute_query
 from src.models.ollama_api import OllamaAPI
+from src.agent.agent import MasterAgent
+from src.models.query_engine import execute_agent_query
 
 def update_model_choices(provider: str, ollama_url: str):
     """Update model dropdown based on provider selection."""
@@ -50,12 +51,23 @@ def update_ollama_api_instance(provider: str, ollama_url: str, model_name: str):
             return None
     return None
 
+def update_master_agent(ollama_api: OllamaAPI, db_manager):
+    """Create or update MasterAgent instance when Ollama API changes."""
+    if ollama_api and ollama_api.llm:
+        try:
+            return MasterAgent(db_manager=db_manager, llm_api=ollama_api)
+        except Exception as e:
+            gr.Warning(f"Failed to initialize MasterAgent: {str(e)}")
+            return None
+    return None
+
 def create_chat_tab(db_manager):
     """Create the chat tab."""
     
     with gr.Tab("Chat"):
-        # State to store Ollama API instance
+        # State to store Ollama API instance and MasterAgent
         ollama_api_state = gr.State(None)
+        master_agent_state = gr.State(None)
         
         with gr.Row():
             with gr.Column(scale=1, min_width=350):
@@ -101,7 +113,7 @@ def create_chat_tab(db_manager):
                 )
             
             with gr.Column(scale=2, min_width=600):
-                gr.Markdown("### Ask Your Question [Mock Response Only]")
+                gr.Markdown("### Ask Your Question")
                 
                 chatbot = gr.Chatbot(
                     label="Conversation",
@@ -163,16 +175,23 @@ def create_chat_tab(db_manager):
             outputs=[ollama_api_state]
         )
         
+        # Update MasterAgent when Ollama API changes
+        ollama_api_state.change(
+            fn=lambda api: update_master_agent(api, db_manager),
+            inputs=[ollama_api_state],
+            outputs=[master_agent_state]
+        )
+        
         # Submit handlers
         submit_btn.click(
-            fn=execute_query,
-            inputs=[connection_dropdown, model_provider, model_name, query_input, chatbot, ollama_api_state],
+            fn=lambda conn, query, history, agent: execute_agent_query(conn, query, history, agent),
+            inputs=[connection_dropdown, query_input, chatbot, master_agent_state],
             outputs=[chatbot, query_input]
         )
         
         query_input.submit(
-            fn=execute_query,
-            inputs=[connection_dropdown, model_provider, model_name, query_input, chatbot, ollama_api_state],
+            fn=lambda conn, query, history, agent: execute_agent_query(conn, query, history, agent),
+            inputs=[connection_dropdown, query_input, chatbot, master_agent_state],
             outputs=[chatbot, query_input]
         )
         

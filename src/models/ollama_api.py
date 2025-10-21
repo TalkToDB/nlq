@@ -1,7 +1,7 @@
 # we will create a class to interact with the Ollama API for language model operations with ollama models and langchain-ollama integration
 
 import requests
-from langchain_ollama import OllamaLLM
+from langchain_ollama import ChatOllama
 from typing import List, Dict
 
 class OllamaAPI:
@@ -10,7 +10,7 @@ class OllamaAPI:
     def __init__(self, base_url: str, model_name: str, temperature: float = 0.7):
         self.model_name = model_name
         self.base_url = base_url
-        self.llm = OllamaLLM(base_url=base_url, model=model_name, temperature=temperature) if model_name and base_url else None
+        self.llm = ChatOllama(base_url=base_url, model=model_name, temperature=temperature) if model_name and base_url else None
 
     def get_models(self) -> List[Dict]:
         """Return list of available Ollama models.
@@ -37,9 +37,16 @@ class OllamaAPI:
         if not self.llm:
             raise ValueError("OllamaLLM is not initialized. Please provide valid base_url and model_name.")
         
-        response = self.llm.generate(
-            [prompt]
-        )
+        # Use invoke instead of generate for simpler response handling
+        response = self.llm.invoke(prompt)
         
-        text = response.generations[0][0].text
-        return text
+        # Extract text content from the AIMessage object
+        # Handle both string and list content types
+        content = response.content
+        if isinstance(content, str):
+            return content
+        elif isinstance(content, list):
+            # Join list items into a single string
+            return " ".join([str(item) for item in content])
+        else:
+            return str(content)
