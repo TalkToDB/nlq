@@ -1,0 +1,37 @@
+version: '3.9'
+
+services:
+  postgres:
+    image: postgres:14
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: admin
+      POSTGRES_DB: mydb
+    ports: ["5432:5432"]
+    volumes:
+      - pg14_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  mysql:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: admin
+      MYSQL_DATABASE: mydb
+      MYSQL_USER: admin
+      MYSQL_PASSWORD: admin
+    ports: ["9000:3306"]
+    volumes:
+      - mysql_data:/var/lib/mysql
+    restart: unless-stopped
+
+  migrator:
+    build:
+      context: ./migrator
+    depends_on:
+      - postgres
+      - mysql
+    restart: "no"
+
+volumes:
+  pg14_data:
+  mysql_data:
