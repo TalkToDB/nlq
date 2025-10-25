@@ -3,7 +3,7 @@ Database connection schemas for different database types.
 Each database type has its own required fields and default ports.
 """
 
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Literal
 from dataclasses import dataclass
 
 @dataclass
@@ -127,6 +127,17 @@ DATABASE_SCHEMAS = {
     "SQL Server": SQLServerSchema,
     "MongoDB": MongoDBSchema,
 }
+
+# Type aliases for database types
+SQL_DATABASES = Literal["PostgreSQL", "MySQL", "SQLite", "SQL Server"]
+
+DATABASE_TYPES = Literal["PostgreSQL", "MySQL", "SQLite", "SQL Server", "MongoDB"]
+
+NOSQL_DATABASES = Literal["MongoDB"]
+
+SQL_DATABASE_NAMES = ["PostgreSQL", "MySQL", "SQLite", "SQL Server"]
+
+NOSQL_DATABASE_NAMES = ["MongoDB"]
 
 def get_schema_for_db_type(db_type: str) -> DatabaseSchema:
     """Get the schema class for a given database type."""
