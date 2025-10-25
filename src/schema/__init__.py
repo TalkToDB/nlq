@@ -1,0 +1,1 @@
+# Schema cache for the database 
