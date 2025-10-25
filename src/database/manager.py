@@ -7,7 +7,9 @@ import json
 from pathlib import Path
 from typing import List, Dict, Optional
 
-DB_CONNECTIONS_FILE = Path("db_connections.json")
+# Get the project root directory (2 levels up from this file)
+PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+DB_CONNECTIONS_FILE = PROJECT_ROOT / "db_connections.json"
 
 def load_connections() -> List[Dict]:
     """Load database connections from file."""
