@@ -1509,6 +1509,7 @@ dependencies = [
     { name = "langchain-community" },
     { name = "langchain-mongodb" },
     { name = "langchain-ollama" },
+    { name = "langgraph" },
 ]
 
 [package.optional-dependencies]
@@ -1539,6 +1540,7 @@ requires-dist = [
     { name = "langchain-community", specifier = ">=0.4" },
     { name = "langchain-mongodb", specifier = ">=0.7.1" },
     { name = "langchain-ollama", specifier = ">=1.0.0" },
+    { name = "langgraph", specifier = ">=1.0.0" },
     { name = "mysql-connector-python", marker = "extra == 'all-databases'", specifier = ">=8.0.33" },
     { name = "mysql-connector-python", marker = "extra == 'mysql'", specifier = ">=8.0.33" },
     { name = "psycopg2-binary", marker = "extra == 'all-databases'", specifier = ">=2.9.9" },
