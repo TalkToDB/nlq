@@ -4,8 +4,10 @@ Main Gradio application.
 
 import gradio as gr
 from src.database.manager import DatabaseManager
+from src.models.ollama_manager import OllamaConnectionManager
 from src.ui.chat import create_chat_tab
 from src.ui.connections_tab import create_connections_tab, add_db_connection_handler, delete_db_connection_handler
+from src.ui.ollama_tab import create_ollama_tab, add_ollama_connection_handler, delete_ollama_connection_handler
 from src.ui.sql_query_tab import create_sql_query_tab
 from src.ui.theme import create_theme
 
@@ -15,8 +17,11 @@ def create_app():
     # Initialize database manager
     db_manager = DatabaseManager()
     
+    # Initialize Ollama connection manager
+    ollama_manager = OllamaConnectionManager()
+    
     with gr.Blocks(
-        title="Database Querying with Natural Language",
+        title="Database querying in Natural Language with agentic AI",
         theme=create_theme(),
         css="""
         .gradio-container {
@@ -98,7 +103,7 @@ def create_app():
         
         with gr.Tabs():
             # Query tab
-            connection_dropdown = create_chat_tab(db_manager)
+            ollama_connection_dropdown, model_dropdown = create_chat_tab(db_manager, ollama_manager)
             
             # SQL Query tab
             sql_connection_dropdown = create_sql_query_tab(db_manager)
@@ -107,6 +112,12 @@ def create_app():
             (save_btn, delete_btn, conn_name, conn_type, connections_table,
              delete_dropdown, edit_dropdown, status_message, all_form_fields, 
              edit_mode_state, cancel_edit_btn) = create_connections_tab(db_manager)
+            
+            # Ollama backend management tab
+            (save_ollama_btn, delete_ollama_btn, ollama_conn_name, ollama_base_url, 
+             ollama_username, ollama_password, ollama_connections_table, 
+             delete_ollama_dropdown, edit_ollama_dropdown, ollama_status_message, 
+             edit_ollama_mode_state, cancel_ollama_edit_btn) = create_ollama_tab(ollama_manager)
         
         # Wire up the save connection button (add or update)
         save_btn.click(
@@ -115,7 +126,7 @@ def create_app():
             ),
             inputs=[conn_name, conn_type] + all_form_fields + [edit_mode_state],
             outputs=[connections_table, status_message, conn_name, save_btn, cancel_edit_btn,
-                    edit_mode_state, connection_dropdown, delete_dropdown, edit_dropdown,
+                    edit_mode_state, ollama_connection_dropdown, delete_dropdown, edit_dropdown,
                     sql_connection_dropdown] + all_form_fields
         )
         
@@ -124,8 +135,28 @@ def create_app():
             fn=lambda name: delete_db_connection_handler(db_manager, name),
             inputs=[delete_dropdown],
             outputs=[connections_table, status_message, 
-                    connection_dropdown, delete_dropdown, edit_dropdown,
+                    ollama_connection_dropdown, delete_dropdown, edit_dropdown,
                     sql_connection_dropdown]
+        )
+        
+        # Wire up the save Ollama connection button (add or update)
+        save_ollama_btn.click(
+            fn=lambda name, base_url, username, password, edit_mode: add_ollama_connection_handler(
+                ollama_manager, name, base_url, username, password, edit_mode
+            ),
+            inputs=[ollama_conn_name, ollama_base_url, ollama_username, ollama_password, edit_ollama_mode_state],
+            outputs=[ollama_connections_table, ollama_status_message, ollama_conn_name, 
+                    ollama_base_url, ollama_username, ollama_password, save_ollama_btn, 
+                    cancel_ollama_edit_btn, edit_ollama_mode_state, ollama_connection_dropdown,
+                    delete_ollama_dropdown, edit_ollama_dropdown, model_dropdown]
+        )
+        
+        # Wire up the delete Ollama connection button
+        delete_ollama_btn.click(
+            fn=lambda name: delete_ollama_connection_handler(ollama_manager, name),
+            inputs=[delete_ollama_dropdown],
+            outputs=[ollama_connections_table, ollama_status_message, 
+                    ollama_connection_dropdown, delete_ollama_dropdown, edit_ollama_dropdown, model_dropdown]
         )
     
     return app
