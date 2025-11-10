@@ -183,4 +183,4 @@ def create_chat_tab(db_manager, ollama_manager):
             outputs=[chatbot, query_input]
         )
     
-    return ollama_connection_dropdown, model_name
+    return connection_dropdown, ollama_connection_dropdown, model_name

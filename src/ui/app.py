@@ -103,7 +103,7 @@ def create_app():
         
         with gr.Tabs():
             # Query tab
-            ollama_connection_dropdown, model_dropdown = create_chat_tab(db_manager, ollama_manager)
+            db_connection_dropdown, ollama_connection_dropdown, model_dropdown = create_chat_tab(db_manager, ollama_manager)
             
             # SQL Query tab
             sql_connection_dropdown = create_sql_query_tab(db_manager)
@@ -126,7 +126,7 @@ def create_app():
             ),
             inputs=[conn_name, conn_type] + all_form_fields + [edit_mode_state],
             outputs=[connections_table, status_message, conn_name, save_btn, cancel_edit_btn,
-                    edit_mode_state, ollama_connection_dropdown, delete_dropdown, edit_dropdown,
+                    edit_mode_state, db_connection_dropdown, delete_dropdown, edit_dropdown,
                     sql_connection_dropdown] + all_form_fields
         )
         
@@ -135,7 +135,7 @@ def create_app():
             fn=lambda name: delete_db_connection_handler(db_manager, name),
             inputs=[delete_dropdown],
             outputs=[connections_table, status_message, 
-                    ollama_connection_dropdown, delete_dropdown, edit_dropdown,
+                    db_connection_dropdown, delete_dropdown, edit_dropdown,
                     sql_connection_dropdown]
         )
         
