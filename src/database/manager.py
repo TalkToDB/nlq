@@ -48,6 +48,8 @@ class DatabaseManager:
         Returns:
             Tuple of (success, message)
         """
+        from src.schema.manager import DBSchemaCacheManager
+
         if not name or not db_type:
             return False, "Error: Name and database type are required."
         
@@ -64,11 +66,15 @@ class DatabaseManager:
         self.connections.append(connection)
         save_connections(self.connections)
         self.reload_connections()  # Reload to ensure consistency
-        
+        schema_cache_manager = DBSchemaCacheManager()
+
+        schema_cache_manager.add_new_schema(name, db_type)
+
         return True, f"Successfully added connection '{name}'."
     
     def update_connection(self, name: str, db_type: str, connection_data: Dict) -> tuple[bool, str]:
         """Update an existing database connection."""
+        from src.schema.manager import DBSchemaCacheManager
         for i, conn in enumerate(self.connections):
             if conn['name'] == name:
                 self.connections[i] = {
@@ -78,12 +84,16 @@ class DatabaseManager:
                 }
                 save_connections(self.connections)
                 self.reload_connections()  # Reload to ensure consistency
+                schema_cache_manager = DBSchemaCacheManager()
+                schema_cache_manager.sync(name, db_type)
                 return True, f"Successfully updated connection '{name}'."
         
         return False, f"Error: Connection '{name}' not found."
     
     def delete_connection(self, name: str) -> tuple[bool, str]:
         """Delete a database connection."""
+        from src.schema.manager import DBSchemaCacheManager
+
         if not name:
             return False, "Error: Please select a connection to delete."
         
@@ -91,8 +101,11 @@ class DatabaseManager:
         self.connections = [conn for conn in self.connections if conn['name'] != name]
         
         if len(self.connections) < initial_count:
+            schema_cache_manager = DBSchemaCacheManager()
+            schema_cache_manager.delete_schema(name)
+            schema_cache_manager.save_state()
             save_connections(self.connections)
-            self.reload_connections()  # Reload to ensure consistency
+            self.reload_connections()
             return True, f"Successfully deleted connection '{name}'."
         
         return False, f"Error: Connection '{name}' not found."

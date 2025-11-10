@@ -1,7 +1,6 @@
 import os
 import json
 from pathlib import Path
-from src.database.manager import DatabaseManager
 from src.schema.schemas import SQLSchemaStructure, NoSQLSchemaStructure
 from src.schema.extractor import create_schema_extractor_from_connection_name
 
@@ -27,7 +26,7 @@ class DBSchemaCacheManager:
     def update_schema(self, connection_name: str, schema: SQLSchemaStructure | NoSQLSchemaStructure):
         self.schema_cache[connection_name] = schema
     
-    def remove_schema(self, connection_name: str):
+    def delete_schema(self, connection_name: str):
         if connection_name in self.schema_cache:
             del self.schema_cache[connection_name]
 
@@ -92,19 +91,30 @@ class DBSchemaCacheManager:
         
         return []
     
-    def sync(self):
+    def sync(self, connection_name:str, connection_type:str):
         try:
-            db_manager = DatabaseManager()
-            for connection_name in db_manager.get_connection_names():
-                connection_details = db_manager.get_connection(connection_name)
-                extractor = create_schema_extractor_from_connection_name(connection_name)
-                if extractor:
-                    schema = extractor.get_full_schema_structure()
-                    schema['db_type'] = connection_details.get('type', '')
-                    if self.exists(connection_name):
-                        self.update_schema(connection_name, schema)
-                    else:
-                        self.add_schema(connection_name, schema)
+            extractor = create_schema_extractor_from_connection_name(connection_name)
+            if extractor:
+                schema = extractor.get_full_schema_structure()
+                schema['db_type'] = connection_type
+                if self.exists(connection_name):
+                    self.update_schema(connection_name, schema)
+                else:
+                    self.add_schema(connection_name, schema)
             self.save_state()
         except Exception as e:
             print(f"Error syncing schema cache: {str(e)}")
+
+    def add_new_schema(self, connection_name:str, connection_type:str):
+        try:
+            extractor = create_schema_extractor_from_connection_name(connection_name)
+            if extractor:
+                schema = extractor.get_full_schema_structure()
+                schema['db_type'] = connection_type
+                if self.exists(connection_name):
+                    self.update_schema(connection_name, schema)
+                else:
+                    self.add_schema(connection_name, schema)
+            self.save_state()
+        except Exception as e:
+            print(f"Error adding new schema cache: {str(e)}")
