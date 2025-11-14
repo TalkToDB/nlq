@@ -67,7 +67,6 @@ class DatabaseManager:
         save_connections(self.connections)
         self.reload_connections()  # Reload to ensure consistency
         schema_cache_manager = DBSchemaCacheManager()
-
         schema_cache_manager.add_new_schema(name, db_type)
 
         return True, f"Successfully added connection '{name}'."
