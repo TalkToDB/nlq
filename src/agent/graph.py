@@ -19,7 +19,7 @@ from langchain_chroma import Chroma
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 
 from src.schema.manager import DBSchemaCacheManager
-from src.models.ollama_api import OllamaAPINew
+from src.models.ollama_api import OllamaAPI
 from src.database.schemas import SQL_DATABASE_NAMES, NOSQL_DATABASE_NAMES
 from src.database.schemas import DATABASE_TYPES
 from src.models.ollama_manager import OllamaConnectionManager
@@ -107,19 +107,18 @@ class DatabaseAgentState(TypedDict):
     agent_response: AgentResponse | None
 
 # Helper function to get LLM from state
-def get_ollama_api(state: DatabaseAgentState) -> OllamaAPINew:
-    """Get OllamaAPINew instance from state connection details."""
+def get_ollama_api(state: DatabaseAgentState) -> OllamaAPI:
+    """Get OllamaAPI instance from state connection details."""
     ollama_manager = OllamaConnectionManager()
     conn = ollama_manager.get_connection(state['ollama_connection_name'])
     
     if not conn:
         raise ValueError(f"Ollama connection '{state['ollama_connection_name']}' not found")
     
-    return OllamaAPINew(
+    return OllamaAPI(
         base_url=conn['base_url'],
         model_name=state['ollama_model_name'],
-        username=conn.get('username', ''),
-        password=conn.get('password', ''),
+        api_key=conn.get('api_key', None),
         should_authenticate=conn.get('should_authenticate', False)
     )
 
@@ -492,12 +491,14 @@ def make_response(state: DatabaseAgentState) -> Command[Literal[END]]:
                 DB Query : {db_query}
                 Reasoning : {reasoning}
                 Total Rows/Documents Retrieved : {len(execution_result) if execution_result else 0}
-                Execution Results : {execution_result[:5]}
+                Execution Results : {execution_result[:100]}
 
                 Guidelines:
                 - Be professional and helpful
                 - Address their specific concern
                 - Use the provided documentation when relevant
+                - You only get a max of 100 rows/documents so summarize accordingly
+                - The total rows/documents retrieved is also provided for context
             """
             response = llm.invoke(draft_prompt)
     else:

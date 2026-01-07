@@ -36,15 +36,14 @@ class OllamaConnectionManager:
         """Reload connections from file."""
         self.connections = load_ollama_connections()
     
-    def add_connection(self, name: str, base_url: str, username: str = "", password: str = "") -> tuple[bool, str]:
+    def add_connection(self, name: str, base_url: str, api_key: str = "") -> tuple[bool, str]:
         """
         Add a new Ollama backend connection.
         
         Args:
             name: Connection name
             base_url: Ollama backend URL
-            username: Optional username for authentication
-            password: Optional password for authentication
+            api_key: Optional API key for authentication
             
         Returns:
             Tuple of (success, message)
@@ -59,9 +58,8 @@ class OllamaConnectionManager:
         connection = {
             "name": name,
             "base_url": base_url.strip(),
-            "username": username.strip() if username else "",
-            "password": password.strip() if password else "",
-            "should_authenticate": bool(username and password)
+            "api_key": api_key.strip() if api_key else "",
+            "should_authenticate": bool(api_key and api_key.strip())
         }
         
         self.connections.append(connection)
@@ -70,16 +68,15 @@ class OllamaConnectionManager:
         
         return True, f"Successfully added Ollama connection '{name}'."
     
-    def update_connection(self, name: str, base_url: str, username: str = "", password: str = "") -> tuple[bool, str]:
+    def update_connection(self, name: str, base_url: str, api_key: str = "") -> tuple[bool, str]:
         """Update an existing Ollama backend connection."""
         for i, conn in enumerate(self.connections):
             if conn['name'] == name:
                 self.connections[i] = {
                     "name": name,
                     "base_url": base_url.strip(),
-                    "username": username.strip() if username else "",
-                    "password": password.strip() if password else "",
-                    "should_authenticate": bool(username and password)
+                    "api_key": api_key.strip() if api_key else "",
+                    "should_authenticate": bool(api_key and api_key.strip())
                 }
                 save_ollama_connections(self.connections)
                 self.reload_connections()

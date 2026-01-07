@@ -4,14 +4,14 @@ Ollama backend connections management tab UI component.
 
 import gradio as gr
 
-def add_ollama_connection_handler(ollama_manager, name, base_url, username, password, edit_mode):
+def add_ollama_connection_handler(ollama_manager, name, base_url, api_key, edit_mode):
     """Handle adding or updating an Ollama backend connection."""
     
     # Check if we're editing or adding
     if edit_mode:
-        success, message = ollama_manager.update_connection(name, base_url, username, password)
+        success, message = ollama_manager.update_connection(name, base_url, api_key)
     else:
-        success, message = ollama_manager.add_connection(name, base_url, username, password)
+        success, message = ollama_manager.add_connection(name, base_url, api_key)
     
     # Reload connections to get updated list
     ollama_manager.reload_connections()
@@ -24,8 +24,7 @@ def add_ollama_connection_handler(ollama_manager, name, base_url, username, pass
             message,  # Status message
             "",  # conn_name - clear
             "",  # base_url - clear
-            "",  # username - clear
-            "",  # password - clear
+            "",  # api_key - clear
             gr.update(value="Add Connection", variant="primary"),  # Reset button
             gr.update(visible=False),  # Hide cancel button
             False,  # edit_mode = False
@@ -40,8 +39,7 @@ def add_ollama_connection_handler(ollama_manager, name, base_url, username, pass
             message,
             name,  # keep the name
             base_url,  # keep the base_url
-            username,  # keep the username
-            password,  # keep the password
+            api_key,  # keep the api_key
             gr.update(),  # keep button as is
             gr.update(),  # keep cancel button as is
             edit_mode,  # keep edit mode
@@ -84,18 +82,17 @@ def delete_ollama_connection_handler(ollama_manager, name):
 def load_ollama_connection_for_edit(ollama_manager, name):
     """Load connection details into the form for editing."""
     if not name:
-        return ["", "", "", "", gr.update(), gr.update(visible=False), False]
+        return ["", "", "", gr.update(), gr.update(visible=False), False]
     
     conn = ollama_manager.get_connection(name)
     if not conn:
-        return ["", "", "", "", gr.update(), gr.update(visible=False), False]
+        return ["", "", "", gr.update(), gr.update(visible=False), False]
     
-    # Return: conn_name, base_url, username, password, save_btn, cancel_edit_btn, edit_mode
+    # Return: conn_name, base_url, api_key, save_btn, cancel_edit_btn, edit_mode
     return [
         conn.get('name', ''),
         conn.get('base_url', ''),
-        conn.get('username', ''),
-        conn.get('password', ''),
+        conn.get('api_key', ''),
         gr.update(value="Update Connection", variant="secondary"),
         gr.update(visible=True),  # Show cancel button
         True  # edit_mode = True
@@ -106,8 +103,7 @@ def cancel_ollama_edit_mode():
     return (
         "",  # conn_name
         "",  # base_url
-        "",  # username
-        "",  # password
+        "",  # api_key
         gr.update(value="Add Connection", variant="primary"),  # Reset save button
         gr.update(visible=False),  # Hide cancel button
         False  # edit_mode = False
@@ -141,24 +137,14 @@ def create_ollama_tab(ollama_manager):
                     info="Ollama backend URL"
                 )
                 
-                gr.Markdown("#### Authentication (Optional)")
-                gr.Markdown("*Leave blank if authentication is not required*")
-                
-                with gr.Group():
-                    ollama_username = gr.Textbox(
-                        label="Username",
-                        placeholder="Enter username (optional)",
-                        max_lines=1,
-                        show_copy_button=False
-                    )
-                    
-                    ollama_password = gr.Textbox(
-                        label="Password",
-                        type="password",
-                        placeholder="Enter password (optional)",
-                        max_lines=1,
-                        show_copy_button=False
-                    )
+                ollama_api_key = gr.Textbox(
+                    label="API Key (Optional)",
+                    type="password",
+                    placeholder="Enter API key if required",
+                    max_lines=1,
+                    show_copy_button=False,
+                    info="Leave blank if authentication is not required"
+                )
                 
                 with gr.Row():
                     save_ollama_btn = gr.Button("Add Connection", variant="primary", size="lg")
@@ -202,18 +188,18 @@ def create_ollama_tab(ollama_manager):
         edit_ollama_btn.click(
             fn=lambda name: load_ollama_connection_for_edit(ollama_manager, name),
             inputs=[edit_ollama_dropdown],
-            outputs=[ollama_conn_name, ollama_base_url, ollama_username, ollama_password, 
+            outputs=[ollama_conn_name, ollama_base_url, ollama_api_key, 
                     save_ollama_btn, cancel_ollama_edit_btn, edit_mode_state]
         )
         
         # Event handler: Cancel edit mode
         cancel_ollama_edit_btn.click(
             fn=cancel_ollama_edit_mode,
-            outputs=[ollama_conn_name, ollama_base_url, ollama_username, ollama_password, 
+            outputs=[ollama_conn_name, ollama_base_url, ollama_api_key, 
                     save_ollama_btn, cancel_ollama_edit_btn, edit_mode_state]
         )
     
     return (save_ollama_btn, delete_ollama_btn, ollama_conn_name, ollama_base_url, 
-            ollama_username, ollama_password, ollama_connections_table, 
+            ollama_api_key, ollama_connections_table, 
             delete_ollama_dropdown, edit_ollama_dropdown, ollama_status_message, 
             edit_mode_state, cancel_ollama_edit_btn)

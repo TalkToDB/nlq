@@ -115,7 +115,7 @@ def create_app():
             
             # Ollama backend management tab
             (save_ollama_btn, delete_ollama_btn, ollama_conn_name, ollama_base_url, 
-             ollama_username, ollama_password, ollama_connections_table, 
+             ollama_api_key, ollama_connections_table, 
              delete_ollama_dropdown, edit_ollama_dropdown, ollama_status_message, 
              edit_ollama_mode_state, cancel_ollama_edit_btn) = create_ollama_tab(ollama_manager)
         
@@ -141,12 +141,12 @@ def create_app():
         
         # Wire up the save Ollama connection button (add or update)
         save_ollama_btn.click(
-            fn=lambda name, base_url, username, password, edit_mode: add_ollama_connection_handler(
-                ollama_manager, name, base_url, username, password, edit_mode
+            fn=lambda name, base_url, api_key, edit_mode: add_ollama_connection_handler(
+                ollama_manager, name, base_url, api_key, edit_mode
             ),
-            inputs=[ollama_conn_name, ollama_base_url, ollama_username, ollama_password, edit_ollama_mode_state],
+            inputs=[ollama_conn_name, ollama_base_url, ollama_api_key, edit_ollama_mode_state],
             outputs=[ollama_connections_table, ollama_status_message, ollama_conn_name, 
-                    ollama_base_url, ollama_username, ollama_password, save_ollama_btn, 
+                    ollama_base_url, ollama_api_key, save_ollama_btn, 
                     cancel_ollama_edit_btn, edit_ollama_mode_state, ollama_connection_dropdown,
                     delete_ollama_dropdown, edit_ollama_dropdown, model_dropdown]
         )

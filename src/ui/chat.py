@@ -3,7 +3,7 @@ Query tab UI component.
 """
 
 import gradio as gr
-from src.models.ollama_api import OllamaAPINew
+from src.models.ollama_api import OllamaAPI
 from src.agent.query_engine import execute_agent_query_with_graph
 
 def update_model_choices(ollama_manager, ollama_connection_name: str):
@@ -20,11 +20,10 @@ def update_model_choices(ollama_manager, ollama_connection_name: str):
     
     # Try to get real models from Ollama API
     try:
-        ollama_api = OllamaAPINew(
+        ollama_api = OllamaAPI(
             base_url=conn['base_url'],
             model_name="",  # Empty for getting models list
-            username=conn.get('username', ''),
-            password=conn.get('password', ''),
+            api_key=conn.get('api_key', None),
             should_authenticate=conn.get('should_authenticate', False)
         )
         models_data = ollama_api.get_models()
@@ -53,11 +52,10 @@ def update_ollama_api_instance(ollama_manager, ollama_connection_name: str, mode
         return None
     
     try:
-        return OllamaAPINew(
+        return OllamaAPI(
             base_url=conn['base_url'],
             model_name=model_name,
-            username=conn.get('username', ''),
-            password=conn.get('password', ''),
+            api_key=conn.get('api_key', None),
             should_authenticate=conn.get('should_authenticate', False)
         )
     except Exception as e:

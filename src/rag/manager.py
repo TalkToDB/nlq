@@ -10,11 +10,11 @@ from langchain_community.document_loaders import DirectoryLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import Chroma
 
-from src.models.ollama_api import OllamaAPINew
+from src.models.ollama_api import OllamaAPI
 from src.models.ollama_manager import OllamaConnectionManager
 
-def get_ollama_api(connection_name:str, model_name:str) -> OllamaAPINew:
-    """Get OllamaAPINew instance from state connection details."""
+def get_ollama_api(connection_name:str, model_name:str) -> OllamaAPI:
+    """Get OllamaAPI instance from state connection details."""
     ollama_manager = OllamaConnectionManager()
 
     conn = ollama_manager.get_connection(connection_name)
@@ -22,11 +22,10 @@ def get_ollama_api(connection_name:str, model_name:str) -> OllamaAPINew:
     if not conn:
         raise ValueError(f"Ollama connection '{connection_name}' not found")
     
-    return OllamaAPINew(
+    return OllamaAPI(
         base_url=conn['base_url'],
         model_name=model_name,
-        username=conn.get('username', ''),
-        password=conn.get('password', ''),
+        api_key=conn.get('api_key', None),
         should_authenticate=conn.get('should_authenticate', False)
     )
 
