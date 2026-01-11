@@ -11,3 +11,4 @@ __pycache__/
 *.json
 documentations/
 chroma_db/
+query_results/

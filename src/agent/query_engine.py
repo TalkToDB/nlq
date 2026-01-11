@@ -6,6 +6,7 @@ import uuid
 import gradio as gr
 from src.database.manager import DatabaseManager
 from src.models.ollama_manager import OllamaConnectionManager
+from src.agent.result_storage import save_query_result
 
 def execute_agent_query_with_graph(
     connection_name: str,
@@ -80,18 +81,42 @@ def execute_agent_query_with_graph(
         agent_response = result.get('agent_response', {})
         if agent_response and agent_response.get('db_query'):
             formatted_response += "### 🔧 Generated Query:\n\n"
-            formatted_response += f"```sql\n{agent_response['db_query']}\n```\n\n"
+            
+            # Format query based on database type
+            db_type = result.get('database_type', 'sql')
+            if db_type == 'MongoDB':
+                formatted_response += f"```json\n{agent_response['db_query']}\n```\n\n"
+            else:
+                formatted_response += f"```sql\n{agent_response['db_query']}\n```\n\n"
             
             if agent_response.get('reasoning'):
                 formatted_response += f"**Reasoning:** {agent_response['reasoning']}\n\n"
             
             if agent_response.get('execution_result'):
                 exec_result = agent_response['execution_result']
-                result_count = len(exec_result) if isinstance(exec_result, list) else 0
+                result_count = len(exec_result) if isinstance(exec_result, list) else 1
                 formatted_response += f"**Execution:** ✅ Success ({result_count} results)\n\n"
+                
+                # Save results to file
+                saved_filepath = save_query_result(
+                    query_id=query_id,
+                    query_text=query,
+                    db_query=agent_response['db_query'],
+                    results=exec_result,
+                    database_type=connection_details['type'],
+                    connection_name=connection_name
+                )
+                
+                # Show link to view raw data
+                if saved_filepath:
+                    # Extract just the filename for the URL
+                    import os
+                    filename = os.path.basename(saved_filepath)
+                    formatted_response += f"📁 **[View Raw Results](/results/{filename})**\n\n"
+                    
             elif agent_response.get('execution_error'):
                 errors = agent_response['execution_error']
-                formatted_response += f"**Execution:** ❌ Error - {errors[-1] if errors else 'Unknown error'}\n\n"
+                formatted_response += f"**Execution:** Error - {errors[-1] if errors else 'Unknown error'}\n\n"
             
             formatted_response += "---\n\n"
         
@@ -107,5 +132,5 @@ def execute_agent_query_with_graph(
         error_msg = f"Error executing query: {str(e)}\n\n{traceback.format_exc()}"
         print(error_msg)  # Print to console for debugging
         gr.Warning(f"Error: {str(e)}")
-        chat_history.append((query, f"❌ **Error:** {str(e)}"))
+        chat_history.append((query, f"**Error:** {str(e)}"))
         return chat_history, ""
