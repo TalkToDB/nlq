@@ -1,0 +1,25 @@
+.gitattributes
+.gitignore
+
+.venv/
+.vscode/
+.idea/
+__pycache__/
+*.pyc
+*.pyo
+.git/
+
+# Runtime-generated data (large, not needed in image)
+chroma_db/
+query_results/
+docs/
+
+# Notebooks
+**/*.ipynb
+
+
+# Secrets / local config (seed via env vars at runtime)
+*.json
+
+# Logs
+*.log

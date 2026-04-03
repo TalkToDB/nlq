@@ -3,8 +3,13 @@ Database Querying With Natural Language
 Main entry point for the Gradio UI.
 """
 
+import os
 from src.ui.app import create_app
 
 if __name__ == "__main__":
     app = create_app()
-    app.launch(share=False, server_name="127.0.0.1", server_port=8080)
+    app.launch(
+        share=False,
+        server_name=os.getenv("HOST", "0.0.0.0"),
+        server_port=int(os.getenv("PORT", 7860)),
+    )
