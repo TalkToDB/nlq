@@ -3,6 +3,7 @@ Main Gradio application.
 """
 
 import gradio as gr
+from pathlib import Path
 from src.database.manager import DatabaseManager
 from src.models.ollama_manager import OllamaConnectionManager
 from src.ui.chat import create_chat_tab
@@ -10,6 +11,14 @@ from src.ui.connections_tab import create_connections_tab, add_db_connection_han
 from src.ui.ollama_tab import create_ollama_tab, add_ollama_connection_handler, delete_ollama_connection_handler
 from src.ui.sql_query_tab import create_sql_query_tab
 from src.ui.theme import create_theme
+
+# Directory for query results (must match result_storage.py)
+RESULTS_DIR = Path(__file__).resolve().parent.parent.parent / "query_results"
+
+def get_allowed_paths():
+    """Get list of paths that can be served by Gradio."""
+    RESULTS_DIR.mkdir(parents=True, exist_ok=True)
+    return [str(RESULTS_DIR)]
 
 def create_app():
     """Create and configure the Gradio application."""
@@ -160,3 +169,36 @@ def create_app():
         )
     
     return app
+
+
+def create_fastapi_app():
+    """Create FastAPI app with custom routes, then mount Gradio on it."""
+    from fastapi import FastAPI
+    from fastapi.responses import FileResponse, JSONResponse
+    
+    # Create FastAPI app
+    fastapi_app = FastAPI()
+    
+    @fastapi_app.get("/results/{filename}")
+    async def serve_result_file(filename: str):
+        """Serve a query result JSON file."""
+        # Security: only allow .json files and no path traversal
+        if not filename.endswith('.json') or '/' in filename or '\\' in filename or '..' in filename:
+            return JSONResponse({"error": "Invalid filename"}, status_code=400)
+        
+        filepath = RESULTS_DIR / filename
+        
+        if not filepath.exists():
+            return JSONResponse({"error": "File not found"}, status_code=404)
+        
+        return FileResponse(
+            path=str(filepath),
+            media_type="application/json",
+            filename=filename
+        )
+    
+    # Create and mount Gradio app
+    gradio_app = create_app()
+    fastapi_app = gr.mount_gradio_app(fastapi_app, gradio_app, path="/")
+    
+    return fastapi_app

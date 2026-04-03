@@ -182,7 +182,23 @@ def execute_sqlserver_query(connection_data: Dict[str, str], query: str) -> Tupl
 
 
 def execute_mongodb_query(connection_data: Dict[str, str], query: str) -> Tuple[bool, str, Any]:
-    """Execute query on MongoDB database - supports both local and MongoDB Atlas (cloud)."""
+    """
+    Execute query on MongoDB database - supports both local and MongoDB Atlas (cloud).
+    
+    The query parameter is expected to be a JSON string with structured parameters:
+    {
+        "collection_name": "users",
+        "operation": "find",  # find, aggregate, count, insert_one, insert_many, update_one, update_many, delete_one, delete_many
+        "filter": "{}",  # JSON string
+        "projection": "{}",  # JSON string  
+        "sort": "{}",  # JSON string
+        "limit": 100,
+        "skip": 0,
+        "update": "{}",  # JSON string for update operations
+        "document": "",  # JSON string for insert operations
+        "pipeline": "[]"  # JSON string for aggregation pipeline
+    }
+    """
     try:
         from pymongo import MongoClient
         from bson import json_util
@@ -198,27 +214,20 @@ def execute_mongodb_query(connection_data: Dict[str, str], query: str) -> Tuple[
         
         # Build connection string based on connection type
         if is_cloud:
-            # MongoDB Atlas uses mongodb+srv:// protocol and doesn't need port
-            # Format: mongodb+srv://username:password@cluster.mongodb.net/database
             if username and password:
-                # Clean up host if it already has protocol
                 clean_host = host.replace('mongodb+srv://', '').replace('mongodb://', '')
                 conn_str = f"mongodb+srv://{username}:{password}@{clean_host}/{database}?retryWrites=true&w=majority"
             else:
                 return False, "MongoDB Atlas (cloud) requires both username and password", None
-                
         else:
-            # Local MongoDB connection with standard mongodb:// protocol
             port = connection_data.get('port', '27017')
             auth_source = connection_data.get('auth_source', 'admin')
             
-            # Validate port for local connections
             try:
                 port = int(port) if port else 27017
             except ValueError:
                 port = 27017
             
-            # Build connection string for local MongoDB
             if username and password:
                 conn_str = f"mongodb://{username}:{password}@{host}:{port}/{database}?authSource={auth_source}"
             else:
@@ -231,56 +240,96 @@ def execute_mongodb_query(connection_data: Dict[str, str], query: str) -> Tuple[
         
         db = client[database]
         
-        # Parse and execute MongoDB query
-        # This is a simplified parser - in production, use a proper parser
-        query = query.strip()
+        # Parse the structured query parameters
+        try:
+            query_params = json.loads(query)
+        except json.JSONDecodeError as e:
+            client.close()
+            return False, f"Invalid query JSON format: {str(e)}", None
         
-        # Simple query parsing (db.collection.operation())
-        if query.startswith('db.'):
-            # Extract collection and operation
+        collection_name = query_params.get('collection_name', '')
+        if not collection_name:
+            client.close()
+            return False, "collection_name is required", None
+        
+        collection = db[collection_name]
+        operation = query_params.get('operation', 'find').lower()
+        
+        # Helper function to safely parse JSON strings
+        def parse_json_param(param_str: str, default=None):
+            if not param_str or param_str in ('{}', '[]', ''):
+                return default if default is not None else ({} if param_str != '[]' else [])
             try:
-                # Remove 'db.' prefix
-                query_without_db = query[3:]
-                
-                # Find collection name
-                collection_name = query_without_db.split('.')[0]
-                collection = db[collection_name]
-                
-                # Execute the operation using eval (simplified - improve this in production)
-                # For safety, we'll handle common operations explicitly
-                results = None
-                
-                if 'countDocuments()' in query_without_db:
-                    count = collection.count_documents({})
-                    results = [{"count": count}]
-                elif 'find().limit(' in query_without_db:
-                    limit = int(query_without_db.split('limit(')[1].split(')')[0])
-                    results = list(collection.find().limit(limit))
-                elif 'find()' in query_without_db:
-                    # Limit to 100 documents for safety
-                    results = list(collection.find().limit(100))
-                elif 'find({' in query_without_db:
-                    # Extract filter - this is very basic parsing
-                    results = list(collection.find().limit(100))
-                else:
-                    # Default: find with limit
-                    results = list(collection.find().limit(10))
-                
-                # Convert ObjectId and other BSON types to JSON-serializable format
-                if results is not None:
-                    results = json.loads(json_util.dumps(results))
-                else:
-                    results = []
-                
+                return json.loads(param_str)
+            except json.JSONDecodeError:
+                return default if default is not None else {}
+        
+        # Parse common parameters
+        filter_doc = parse_json_param(query_params.get('filter', '{}'), {})
+        projection_doc = parse_json_param(query_params.get('projection', '{}'), None)
+        sort_doc = parse_json_param(query_params.get('sort', '{}'), None)
+        limit_val = min(int(query_params.get('limit', 100)), 1000)  # Cap at 1000 for safety
+        skip_val = int(query_params.get('skip', 0))
+        
+        results = None
+        
+        # Execute based on operation type
+        if operation == 'find':
+            cursor = collection.find(filter_doc, projection_doc)
+            if sort_doc:
+                cursor = cursor.sort(list(sort_doc.items()))
+            if skip_val > 0:
+                cursor = cursor.skip(skip_val)
+            cursor = cursor.limit(limit_val)
+            results = list(cursor)
+            
+        elif operation == 'aggregate':
+            pipeline = parse_json_param(query_params.get('pipeline', '[]'), [])
+            if not isinstance(pipeline, list):
+                pipeline = [pipeline]
+            # Block write stages in aggregation pipeline
+            write_stages = {'$out', '$merge'}
+            for stage in pipeline:
+                if any(ws in stage for ws in write_stages):
+                    client.close()
+                    return False, "Write operations ($out, $merge) are not allowed in aggregation pipeline", None
+            # Add $limit stage if not present for safety
+            has_limit = any('$limit' in stage for stage in pipeline)
+            if not has_limit:
+                pipeline.append({'$limit': limit_val})
+            results = list(collection.aggregate(pipeline))
+            
+        elif operation == 'count':
+            count = collection.count_documents(filter_doc)
+            results = [{"count": count}]
+            
+        elif operation == 'distinct':
+            field = query_params.get('field', '')
+            if not field:
                 client.close()
-                return True, "Query executed successfully", results
-                
-            except Exception as e:
-                client.close()
-                return False, f"MongoDB Query Parse Error: {str(e)}\n{traceback.format_exc()}", None
+                return False, "field is required for distinct operation", None
+            distinct_values = collection.distinct(field, filter_doc)
+            results = [{"field": field, "distinct_values": distinct_values, "count": len(distinct_values)}]
+            
+        elif operation == 'find_one':
+            result = collection.find_one(filter_doc, projection_doc)
+            results = [result] if result else []
+            
         else:
             client.close()
-            return False, "MongoDB query must start with 'db.collection_name'", None
+            return False, f"Unsupported operation: {operation}. Only read operations allowed: find, find_one, aggregate, count, distinct", None
+        
+        # Convert ObjectId and other BSON types to JSON-serializable format
+        if results is not None:
+            if isinstance(results, list):
+                results = json.loads(json_util.dumps(results))
+            elif isinstance(results, dict):
+                results = json.loads(json_util.dumps(results))
+        else:
+            results = []
+        
+        client.close()
+        return True, "Query executed successfully", results
         
     except ImportError:
         return False, "MongoDB driver (pymongo) not installed. Install with: pip install pymongo", None
