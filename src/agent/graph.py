@@ -64,6 +64,30 @@ class LLMQueryResponse(TypedDict):
     # whether to execute the query or not
     execute: bool
 
+
+class MongoDBQueryParams(TypedDict):
+    """Structured parameters for MongoDB query execution (read-only operations)."""
+    # Name of the collection to query
+    collection_name: str
+    # Operation type: find, find_one, aggregate, count, distinct (read-only operations only)
+    operation: str
+    # Filter criteria (JSON string) - used for find operations
+    filter: str
+    # Projection fields (JSON string) - which fields to include/exclude
+    projection: str
+    # Sort specification (JSON string) - e.g., {"name": 1} for ascending
+    sort: str
+    # Maximum number of documents to return
+    limit: int
+    # Number of documents to skip
+    skip: int
+    # Aggregation pipeline (JSON string) - used for aggregate operation
+    pipeline: str
+    # Field name for distinct operation
+    field: str
+    # Reasoning behind the query
+    reasoning: str
+
 class UserIntent(TypedDict):
     intent: Literal["casual", "technical_info", "db_query", 'other']
 
@@ -330,41 +354,104 @@ def create_query(state:DatabaseAgentState) -> Command[Literal["executor_node"]]:
     ollama_api = get_ollama_api(state)
     llm = ollama_api.llm
 
-    structured_llm = llm.with_structured_output(LLMQueryResponse)
     execution_retry_count = state['agent_response'].get('execution_retry_count', 0) + 1
     error = state['agent_response'].get('execution_error', [])
+    database_type = state['database_type']
 
-    draft_prompt = f"""
-        Generate a database query based on the user request.
-
-        Query: {state['query_text']}
+    # Use different structured output based on database type
+    if database_type == 'MongoDB':
+        structured_llm = llm.with_structured_output(MongoDBQueryParams)
         
-        Database Type: {state['database_type']}
+        draft_prompt = f"""
+            Generate MongoDB query parameters based on the user request.
+
+            User Query: {state['query_text']}
+            
+            Schema Context (Collections and their structure): {state['predefined_schema_context']}
+
+            Previous Error: {error[-1] if (error and len(error) > 0) else 'N/A'}
+
+            Execution Retry Count: {execution_retry_count}
+
+            You must provide the following parameters:
+            - collection_name: The name of the collection to query
+            - operation: One of: find, find_one, aggregate, count, distinct (READ-ONLY operations only)
+            - filter: JSON string for filter criteria, e.g., '{{"name": "John"}}' or '{{}}' for no filter
+            - projection: JSON string for fields to include/exclude, e.g., '{{"name": 1, "email": 1, "_id": 0}}' or '{{}}' for all fields
+            - sort: JSON string for sort order, e.g., '{{"created_at": -1}}' for descending or '{{}}' for no sort
+            - limit: Maximum documents to return (default 100 for safety)
+            - skip: Number of documents to skip (default 0)
+            - pipeline: JSON string array for aggregation pipeline, e.g., '[{{"$match": {{}}}}, {{"$group": {{"_id": "$category"}}}}]'
+            - field: Field name for distinct operation
+            - reasoning: Explain why you generated this query
+
+            IMPORTANT: Only READ operations are allowed. Do NOT generate insert, update, or delete operations.
+
+            Guidelines:
+            - Use valid JSON strings for all JSON fields (filter, projection, sort, pipeline)
+            - For unused fields, use empty JSON: '{{}}' for objects, '[]' for arrays, '' for strings
+            - Always set limit to 100 or less for find operations
+            - Match field names exactly as shown in the schema context
+            - If the previous error is not 'N/A', fix the issue that caused it
+            """
         
-        Schema Context: {state['predefined_schema_context']}
+        response = structured_llm.invoke(draft_prompt)
 
-        Previous Error: {error[-1] if (error and len(error) > 0) else 'N/A'}
+        # Store MongoDB params as JSON string in db_query for the executor
+        import json
+        mongodb_params = {
+            "collection_name": response.get('collection_name', ''),
+            "operation": response.get('operation', 'find'),
+            "filter": response.get('filter', '{}'),
+            "projection": response.get('projection', '{}'),
+            "sort": response.get('sort', '{}'),
+            "limit": response.get('limit', 100),
+            "skip": response.get('skip', 0),
+            "pipeline": response.get('pipeline', '[]'),
+            "field": response.get('field', '')
+        }
 
-        Execution Retry Count: {execution_retry_count}
-
-        Guidelines:
-        - Use the provided context when relevant
-        - Make sure to generate syntactically correct queries with no formatting with newlines or any other things which could fail query execution
-        - Always limit the data fetched to 100 rows/documents
-        - If the query cannot be generated based on the context, return an empty query
-        - Provide reasoning for the generated query
-        - Decide whether the query should be executed or not based on only one factor - if the query modifies or deleted data then do not execute otherwise execute the query
-        - If the previous error is not 'N/A', take that into account to avoid repeating the same mistake and fix the error
-        """
+        agent_response: AgentResponse = {
+            "db_query": json.dumps(mongodb_params),
+            "reasoning": response.get('reasoning', ''),
+            "execute": True,  # Always execute - only read operations allowed
+            "execution_error": error
+        }
+    else:
+        # SQL databases use the original approach
+        structured_llm = llm.with_structured_output(LLMQueryResponse)
         
-    response = structured_llm.invoke(draft_prompt)
+        draft_prompt = f"""
+            Generate a database query based on the user request.
 
-    agent_response: AgentResponse = {
-        "db_query": response['query'],
-        "reasoning": response['reasoning'],
-        "execute": response['execute'],
-        "execution_error": error
-    }
+            Query: {state['query_text']}
+            
+            Database Type: {database_type}
+            
+            Schema Context: {state['predefined_schema_context']}
+
+            Previous Error: {error[-1] if (error and len(error) > 0) else 'N/A'}
+
+            Execution Retry Count: {execution_retry_count}
+
+            Guidelines:
+            - Use the provided context when relevant
+            - Make sure to generate syntactically correct queries with no formatting with newlines or any other things which could fail query execution
+            - Always limit the data fetched to 100 rows/documents
+            - If the query cannot be generated based on the context, return an empty query
+            - Provide reasoning for the generated query
+            - Decide whether the query should be executed or not based on only one factor - if the query modifies or deleted data then do not execute otherwise execute the query
+            - If the previous error is not 'N/A', take that into account to avoid repeating the same mistake and fix the error
+            """
+        
+        response = structured_llm.invoke(draft_prompt)
+
+        agent_response: AgentResponse = {
+            "db_query": response['query'],
+            "reasoning": response['reasoning'],
+            "execute": response['execute'],
+            "execution_error": error
+        }
 
     return Command(
         update={"agent_response": agent_response},
