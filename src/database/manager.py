@@ -3,13 +3,16 @@ Database connection manager.
 Handles saving, loading, and managing database connections.
 """
 
+import os
 import json
 from pathlib import Path
 from typing import List, Dict, Optional
 
 # Get the project root directory (2 levels up from this file)
-PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
-DB_CONNECTIONS_FILE = PROJECT_ROOT / "db_connections.json"
+BASE_DIR = Path(os.getenv("DATA_DIR", Path(__file__).resolve().parent.parent.parent))
+DB_CONNECTIONS_FILE = BASE_DIR / "db_connections.json"
+
+print(f"Database connections file path: {DB_CONNECTIONS_FILE}")
 
 def load_connections() -> List[Dict]:
     """Load database connections from file."""

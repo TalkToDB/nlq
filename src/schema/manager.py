@@ -5,8 +5,10 @@ from src.schema.schemas import SQLSchemaStructure, NoSQLSchemaStructure
 from src.schema.extractor import create_schema_extractor_from_connection_name
 
 # Get the project root directory (2 levels up from this file)
-PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
-SCHEMA_CACHE_FILE = PROJECT_ROOT / "schema_cache.json"
+BASE_DIR = Path(os.getenv("DATA_DIR", Path(__file__).resolve().parent.parent.parent))
+SCHEMA_CACHE_FILE = BASE_DIR / "schema_cache.json"
+
+print(f"Schema cache file path: {SCHEMA_CACHE_FILE}")
 
 class DBSchemaCacheManager:
     

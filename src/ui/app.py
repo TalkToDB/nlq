@@ -167,7 +167,42 @@ def create_app():
             outputs=[ollama_connections_table, ollama_status_message, 
                     ollama_connection_dropdown, delete_ollama_dropdown, edit_ollama_dropdown, model_dropdown]
         )
-    
+
+        # Re-hydrate all dropdowns and tables on every page load / refresh.
+        # Without this, Gradio resets components to their app-creation-time initial
+        # values, so connections added after startup would be missing until restart.
+        def _refresh_on_load():
+            db_manager.reload_connections()
+            ollama_manager.reload_connections()
+            db_names = db_manager.get_connection_names()
+            ollama_names = ollama_manager.get_connection_names()
+            return (
+                gr.update(choices=db_names),           # db_connection_dropdown (chat tab)
+                gr.update(choices=ollama_names),        # ollama_connection_dropdown (chat tab)
+                gr.update(choices=db_names),            # sql_connection_dropdown
+                db_manager.get_connections_table(),     # connections_table
+                gr.update(choices=db_names),            # delete_dropdown
+                gr.update(choices=db_names),            # edit_dropdown
+                ollama_manager.get_connections_table(), # ollama_connections_table
+                gr.update(choices=ollama_names),        # delete_ollama_dropdown
+                gr.update(choices=ollama_names),        # edit_ollama_dropdown
+            )
+
+        app.load(
+            fn=_refresh_on_load,
+            outputs=[
+                db_connection_dropdown,
+                ollama_connection_dropdown,
+                sql_connection_dropdown,
+                connections_table,
+                delete_dropdown,
+                edit_dropdown,
+                ollama_connections_table,
+                delete_ollama_dropdown,
+                edit_ollama_dropdown,
+            ]
+        )
+
     return app
 
 

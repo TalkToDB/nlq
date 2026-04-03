@@ -3,13 +3,16 @@ Ollama backend connection manager.
 Handles saving, loading, and managing Ollama backend connections.
 """
 
+import os
 import json
 from pathlib import Path
 from typing import List, Dict, Optional
 
 # Get the project root directory (3 levels up from this file)
-PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
-OLLAMA_CONNECTIONS_FILE = PROJECT_ROOT / "ollama_connections.json"
+BASE_DIR = Path(os.getenv("DATA_DIR", Path(__file__).resolve().parent.parent.parent))
+OLLAMA_CONNECTIONS_FILE = BASE_DIR / "ollama_connections.json"
+
+print(f"Ollama connections file path: {OLLAMA_CONNECTIONS_FILE}")
 
 def load_ollama_connections() -> List[Dict]:
     """Load Ollama connections from file."""

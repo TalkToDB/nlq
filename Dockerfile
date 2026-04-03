@@ -53,7 +53,8 @@ EXPOSE 7860
 
 # HOST and PORT can be overridden; defaults match HF Spaces / Docker conventions
 ENV HOST=0.0.0.0 \
-    PORT=7860
+    PORT=7860 \
+    DATA_DIR=/data
 
 CMD ["python", "main.py"]
 
