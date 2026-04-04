@@ -3,6 +3,7 @@ Result storage for query execution results.
 Stores query results as JSON files for viewing in the UI.
 """
 
+import os
 import json
 from datetime import datetime
 from pathlib import Path
@@ -11,7 +12,8 @@ import uuid
 
 
 # Directory for storing query results
-RESULTS_DIR = Path(__file__).resolve().parent.parent.parent / "query_results"
+DATA_DIR = Path(os.getenv("DATA_DIR", Path(__file__).resolve().parent.parent.parent))
+RESULTS_DIR = DATA_DIR / "query_results"
 
 
 def ensure_results_dir():

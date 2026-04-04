@@ -11,9 +11,7 @@ from src.ui.connections_tab import create_connections_tab, add_db_connection_han
 from src.ui.ollama_tab import create_ollama_tab, add_ollama_connection_handler, delete_ollama_connection_handler
 from src.ui.sql_query_tab import create_sql_query_tab
 from src.ui.theme import create_theme
-
-# Directory for query results (must match result_storage.py)
-RESULTS_DIR = Path(__file__).resolve().parent.parent.parent / "query_results"
+from src.agent.result_storage import RESULTS_DIR
 
 def get_allowed_paths():
     """Get list of paths that can be served by Gradio."""
@@ -208,15 +206,16 @@ def create_app():
 
 def create_fastapi_app():
     """Create FastAPI app with custom routes, then mount Gradio on it."""
+    import json
     from fastapi import FastAPI
-    from fastapi.responses import FileResponse, JSONResponse
+    from fastapi.responses import HTMLResponse, JSONResponse
     
     # Create FastAPI app
     fastapi_app = FastAPI()
     
     @fastapi_app.get("/results/{filename}")
     async def serve_result_file(filename: str):
-        """Serve a query result JSON file."""
+        """Serve a query result JSON file as a styled HTML page."""
         # Security: only allow .json files and no path traversal
         if not filename.endswith('.json') or '/' in filename or '\\' in filename or '..' in filename:
             return JSONResponse({"error": "Invalid filename"}, status_code=400)
@@ -226,11 +225,68 @@ def create_fastapi_app():
         if not filepath.exists():
             return JSONResponse({"error": "File not found"}, status_code=404)
         
-        return FileResponse(
-            path=str(filepath),
-            media_type="application/json",
-            filename=filename
-        )
+        with open(filepath, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        
+        json_str = json.dumps(data, indent=2, default=str, ensure_ascii=False)
+        
+        html = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{filename}</title>
+<style>
+  body {{
+    margin: 0; padding: 20px;
+    background: #0d1117; color: #e6edf3;
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  }}
+  h1 {{
+    font-size: 1.1rem; color: #58a6ff;
+    border-bottom: 1px solid #30363d; padding-bottom: 10px;
+    word-break: break-all;
+  }}
+  .meta {{ color: #8b949e; font-size: 0.85rem; margin-bottom: 16px; }}
+  .meta span {{ margin-right: 18px; }}
+  pre {{
+    background: #161b22; border: 1px solid #30363d;
+    border-radius: 6px; padding: 16px;
+    overflow-x: auto; font-size: 0.85rem;
+    line-height: 1.5;
+  }}
+  .key {{ color: #ff7b72; }}
+  .str {{ color: #a5d6ff; }}
+  .num {{ color: #79c0ff; }}
+  .bool {{ color: #f0883e; }}
+  .null {{ color: #8b949e; }}
+</style>
+</head>
+<body>
+<h1>{filename}</h1>
+<div class="meta">
+  <span>Query: {data.get('query_text', 'N/A')}</span>
+  <span>Database: {data.get('database_type', 'N/A')}</span>
+  <span>Rows: {data.get('row_count', 'N/A')}</span>
+</div>
+<pre id="json"></pre>
+<script>
+const data = {json_str};
+function highlight(obj, indent) {{
+  const s = JSON.stringify(obj, null, 2);
+  return s
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"([^"]+)"(?=\\s*:)/g, '<span class="key">"$1"</span>')
+    .replace(/: "(.*?)"/g, ': <span class="str">"$1"</span>')
+    .replace(/: (\\d+\\.?\\d*)/g, ': <span class="num">$1</span>')
+    .replace(/: (true|false)/g, ': <span class="bool">$1</span>')
+    .replace(/: (null)/g, ': <span class="null">$1</span>');
+}}
+document.getElementById('json').innerHTML = highlight(data);
+</script>
+</body>
+</html>"""
+        return HTMLResponse(content=html)
     
     # Create and mount Gradio app
     gradio_app = create_app()

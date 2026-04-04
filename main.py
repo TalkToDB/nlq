@@ -6,12 +6,13 @@ from dotenv import load_dotenv
 load_dotenv()  # Load environment variables from .env file
 
 import os
-from src.ui.app import create_app
+import uvicorn
+from src.ui.app import create_fastapi_app
 
 if __name__ == "__main__":
-    app = create_app()
-    app.launch(
-        share=False,
-        server_name=os.getenv("HOST", "0.0.0.0"),
-        server_port=int(os.getenv("PORT", 7860)),
+    app = create_fastapi_app()
+    uvicorn.run(
+        app,
+        host=os.getenv("HOST", "0.0.0.0"),
+        port=int(os.getenv("PORT", 7860)),
     )
